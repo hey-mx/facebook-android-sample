@@ -1,11 +1,16 @@
 package com.example.facebooksample;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentTransaction;
 import android.view.Menu;
+
+import com.facebook.Session;
+import com.facebook.SessionState;
+import com.facebook.UiLifecycleHelper;
 
 public class MainActivity extends FragmentActivity {
 
@@ -15,6 +20,14 @@ public class MainActivity extends FragmentActivity {
 	private boolean isResumed = false;
 	
 	private Fragment[] fragments = new Fragment[FRAGMENT_COUNT];
+	private UiLifecycleHelper uiHelper;
+	
+	private Session.StatusCallback callback = new Session.StatusCallback() {
+		@Override
+		public void call(Session session, SessionState state, Exception exception) {
+			onSessionStateChange(session, state, exception);
+		}
+	};
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -25,6 +38,8 @@ public class MainActivity extends FragmentActivity {
 		fragments[SPLASH] = fm.findFragmentById(R.id.splashFragment);
 		fragments[SELECTION] = fm.findFragmentById(R.id.selectionFragment);
 		showFragment(-1, false);
+		uiHelper = new UiLifecycleHelper(this, callback);
+		uiHelper.onCreate(savedInstanceState);
 	}
 
 	@Override
@@ -54,6 +69,7 @@ public class MainActivity extends FragmentActivity {
 	protected void onPause() {
 		// TODO Auto-generated method stub
 		super.onPause();
+		uiHelper.onPause();
 		isResumed = false;
 	}
 
@@ -61,6 +77,59 @@ public class MainActivity extends FragmentActivity {
 	protected void onResume() {
 		// TODO Auto-generated method stub
 		super.onResume();
+		uiHelper.onResume();
 		isResumed = true;
 	}
+	
+	private void onSessionStateChange(Session session, SessionState state, Exception exception) {
+		if(isResumed) {
+			FragmentManager manager = getSupportFragmentManager();
+			int backStackSize = manager.getBackStackEntryCount();
+			//Clear the back stack
+			for(int i=0; i < backStackSize; ++i) {
+				manager.popBackStack();
+			}
+			if(state.isOpened()) {
+				showFragment(SELECTION, false);
+			} else if(state.isClosed()) {
+				showFragment(SPLASH, false);
+			}
+		}
+	}
+
+	@Override
+	protected void onResumeFragments() {
+		// TODO Auto-generated method stub
+		super.onResumeFragments();
+		Session session = Session.getActiveSession();
+		
+		if(session != null && session.isOpened()) {
+			showFragment(SELECTION, false);
+		} else {
+			showFragment(SPLASH, false);
+		}
+	}
+
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		// TODO Auto-generated method stub
+		super.onActivityResult(requestCode, resultCode, data);
+		uiHelper.onActivityResult(requestCode, resultCode, data);
+		Session.getActiveSession().onActivityResult(this, requestCode, resultCode, data);
+	}
+
+	@Override
+	protected void onDestroy() {
+		// TODO Auto-generated method stub
+		super.onDestroy();
+		uiHelper.onDestroy();
+	}
+
+	@Override
+	protected void onSaveInstanceState(Bundle outState) {
+		// TODO Auto-generated method stub
+		super.onSaveInstanceState(outState);
+		uiHelper.onSaveInstanceState(outState);
+	}
+	
 }
